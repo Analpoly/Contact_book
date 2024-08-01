@@ -133,24 +133,39 @@ class _HomepageState extends State<Homepage> {
       contacts = loadedContacts;
     });
   }
-_addContact(BuildContext context, Contact contact) async {
-  if (contact.name.isNotEmpty && contact.phoneNumber.isNotEmpty && contact.email.isNotEmpty) {
-    await DatabaseHelper.instance.insertContact(contact);
-    _loadContacts();
-  } else {
-    // Show an error message or handle the case where minimum required fields are not provided.
-    // For example, you can use a SnackBar to show a message.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Name, phone number, and email are required.'),
-      ),
-    );
+ _addContact(BuildContext context, Contact contact) async {
+    if (contact.name.isNotEmpty && contact.phoneNumber.isNotEmpty && contact.email.isNotEmpty) {
+      await DatabaseHelper.instance.insertContact(contact);
+      setState(() {
+        contacts.add(contact);
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Name, phone number, and email are required.'),
+        ),
+      );
+    }
   }
-}
+_updateContact(Contact updatedContact) async {
+    if (updatedContact.name.isNotEmpty && updatedContact.phoneNumber.isNotEmpty && updatedContact.email.isNotEmpty) {
+      await DatabaseHelper.instance.updateContact(updatedContact);
+      setState(() {
+        int index = contacts.indexWhere((contact) => contact.id == updatedContact.id);
+        if (index != -1) {
+          contacts[index] = updatedContact;
+        }
+      });
+    } else {
+      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+        const SnackBar(
+          content: Text('Name, phone number, and email are required.'),
+        ),
+      );
+    }
+  }
 
-
-
-  _searchContacts(String query) async {
+ _searchContacts(String query) async {
     final loadedContacts = await DatabaseHelper.instance.getContacts();
     setState(() {
       contacts = loadedContacts.where((contact) {
@@ -188,12 +203,17 @@ _addContact(BuildContext context, Contact contact) async {
                   ),
             title: Text(contacts[index].name,style: TextStyle(color: Color.fromARGB(221, 0, 1, 7)),),
             subtitle: Text(contacts[index].phoneNumber,style: TextStyle(color: Color.fromARGB(221, 0, 1, 7))),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ContactDetailPage(contact: contacts[index])),
-              );
-            },
+           onTap: () async {
+  final deleted = await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => ContactDetailPage(contact: contacts[index], updateContact: _updateContact,)),
+  );
+
+  if (deleted == true) {
+    _loadContacts();
+  }
+}
+
           );
         },
       ),
@@ -274,7 +294,7 @@ class ContactSearch extends SearchDelegate<String> {
             close(context, contact.name);
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => ContactDetailPage(contact: contact)),
+              MaterialPageRoute(builder: (context) => ContactDetailPage(contact: contact, updateContact: (Contact ) {  },)),
             );
           },
         );
@@ -395,8 +415,9 @@ class _AddContactPageState extends State<AddContactPage> {
 
 class ContactDetailPage extends StatelessWidget {
   final Contact contact;
+  final Function(Contact) updateContact;
 
-  const ContactDetailPage({required this.contact});
+  const ContactDetailPage({required this.contact, required this.updateContact});
 
   @override
   Widget build(BuildContext context) {
@@ -414,12 +435,7 @@ class ContactDetailPage extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.edit),
             color: Colors.white,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => EditContactPage(contact: contact)),
-              );
-            },
+            onPressed: () => _editContact(context),
           ),
           IconButton(
             icon: Icon(Icons.delete),
@@ -545,8 +561,7 @@ class ContactDetailPage extends StatelessWidget {
       ),
     );
   }
-
-  String _getInitials(String name) {
+ String _getInitials(String name) {
     List<String> nameSplit = name.split(' ');
     String initials = '';
     int numWords = nameSplit.length > 2 ? 2 : nameSplit.length;
@@ -555,37 +570,47 @@ class ContactDetailPage extends StatelessWidget {
     }
     return initials;
   }
-
-  void _deleteContact(BuildContext context) async {
-    bool confirmDelete = await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Delete Contact'),
-          content: Text('Are you sure you want to delete this contact?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: Text('CANCEL'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              child: Text('DELETE'),
-            ),
-          ],
-        );
-      },
+  void _editContact(BuildContext context) async {
+    final updatedContact = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => EditContactPage(contact: contact)),
     );
 
-    if (confirmDelete != null && confirmDelete) {
-      await DatabaseHelper.instance.deleteContact(contact.id!);
-      Navigator.pop(context);
+    if (updatedContact != null && updatedContact is Contact) {
+      updateContact(updatedContact);
     }
   }
+void _deleteContact(BuildContext context) async {
+  bool confirmDelete = await showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Delete Contact'),
+        content: Text('Are you sure you want to delete this contact?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(false);
+            },
+            child: Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(true);
+            },
+            child: Text('DELETE'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmDelete) {
+    await DatabaseHelper.instance.deleteContact(contact.id!);
+    Navigator.pop(context, true);  // Notify the previous screen to update the UI
+  }
+}
+
 }
 
 class EditContactPage extends StatefulWidget {
@@ -684,20 +709,20 @@ class _EditContactPageState extends State<EditContactPage> {
               ),
             ),
             SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                final updatedContact = Contact(
-                  id: widget.contact.id,
-                  name: _nameController.text,
-                  phoneNumber: _phoneNumberController.text,
-                  email: _emailController.text,
-                  photoPath: _image?.path ?? widget.contact.photoPath,
-                );
-                _updateContact(context,updatedContact);
-                Navigator.pop(context);
-              },
-              child: Text('Save Changes'),
-            ),
+           ElevatedButton(
+  onPressed: () {
+    final updatedContact = Contact(
+      id: widget.contact.id,
+      name: _nameController.text,
+      phoneNumber: _phoneNumberController.text,
+      email: _emailController.text,
+      photoPath: _image?.path ?? widget.contact.photoPath,
+    );
+    Navigator.pop(context, updatedContact);
+  },
+  child: Text('Save Changes'),
+)
+
           ],
         ),
       ),
@@ -713,21 +738,27 @@ class _EditContactPageState extends State<EditContactPage> {
 
 
 
- void _updateContact(BuildContext context, Contact updatedContact) async {
-  if (updatedContact.name.isNotEmpty && updatedContact.phoneNumber.isNotEmpty && updatedContact.email.isNotEmpty) {
-    await DatabaseHelper.instance.updateContact(updatedContact);
-  } else {
-    // Show an error message or handle the case where minimum required fields are not provided.
-    // For example, you can use a SnackBar to show a message.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Name, phone number, and email are required.'),
-      ),
-    );
-    return; // Prevent further execution if validation fails
-  }
-}
-
+ 
+//   _updateContact(Contact updatedContact) async {
+//     if (updatedContact.name.isNotEmpty &&
+//         updatedContact.phoneNumber.isNotEmpty &&
+//         updatedContact.email.isNotEmpty) {
+//       await DatabaseHelper.instance.updateContact(updatedContact);
+//       setState(() {
+//         int index = contacts.indexWhere((contact) => contact.id == updatedContact.id);
+//         if (index != -1) {
+//           contacts[index] = updatedContact;
+//         }
+//       });
+//     } else {
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         const SnackBar(
+//           content: Text('Name, phone number, and email are required.'),
+//         ),
+//       );
+//     }
+//   }
+// }
 
   String _getInitials(String name) {
     List<String> nameSplit = name.split(' ');
@@ -740,4 +771,4 @@ class _EditContactPageState extends State<EditContactPage> {
   }
 
 
-} 
+}
