@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "319202679340",
+    "project_id": "login-ff001",
+    "storage_bucket": "login-ff001.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:319202679340:android:2e06d0f30bc0b71fc18f89",
+        "android_client_info": {
+          "package_name": "com.example.contact_book"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDJMIFyE2f7l1FEHa4xlbyF2_f1ofeZMo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
