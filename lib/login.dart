@@ -1,31 +1,35 @@
-import 'package:contact_book/controller/authcontroller.dart';
-import 'package:flutter/material.dart';
 
-class RegisterPage extends StatefulWidget {
+import 'package:contact_book/contactbook.dart';
+import 'package:contact_book/registeration.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+
+class LoginPage extends StatefulWidget {
   @override
-  _RegisterPageState createState() => _RegisterPageState();
+  _LoginPageState createState() => _LoginPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
+class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _phoneNumberController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  void _register() async {
+  void _login() async {
     if (_formKey.currentState!.validate()) {
-      bool success = await AuthController.instance.register(
-        _nameController.text,
-        _emailController.text,
-        _passwordController.text,
-        _phoneNumberController.text,
-      );
-      if (success) {
-        Navigator.pushReplacementNamed(context, '/homepage');
-      } else {
+      try {
+        await _auth.signInWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => Homepage()),
+        );
+      } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Registration failed'),
+          content: Text(e.toString()),
         ));
       }
     }
@@ -35,7 +39,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Register'),
+        title: Text('Login'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -44,17 +48,6 @@ class _RegisterPageState extends State<RegisterPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(labelText: 'Name'),
-                validator: (value) {
-                  if (value!.isEmpty) {
-                    return 'Please enter your name';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16.0),
               TextFormField(
                 controller: _emailController,
                 decoration: InputDecoration(labelText: 'Email'),
@@ -84,23 +77,18 @@ class _RegisterPageState extends State<RegisterPage> {
                 },
               ),
               SizedBox(height: 16.0),
-              TextFormField(
-                controller: _phoneNumberController,
-                decoration: InputDecoration(labelText: 'Phone Number'),
-                validator: (value) {
-                  if (value!.isEmpty) {
-                    return 'Please enter your phone number';
-                  }
-                  if (!RegExp(r'^\d{10}$').hasMatch(value)) {
-                    return 'Please enter a valid phone number';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16.0),
               ElevatedButton(
-                onPressed: _register,
-                child: Text('Register'),
+                onPressed: _login,
+                child: Text('Login'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => RegisterPage()),
+                  );
+                },
+                child: Text('Don\'t have an account? Register'),
               ),
             ],
           ),
