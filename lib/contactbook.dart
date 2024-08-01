@@ -164,7 +164,12 @@ _updateContact(Contact updatedContact) async {
       );
     }
   }
-
+_deleteContact(int id) async {
+  await DatabaseHelper.instance.deleteContact(id);
+  setState(() {
+    contacts.removeWhere((contact) => contact.id == id);
+  });
+}
  _searchContacts(String query) async {
     final loadedContacts = await DatabaseHelper.instance.getContacts();
     setState(() {
@@ -413,11 +418,24 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 }
 
-class ContactDetailPage extends StatelessWidget {
+class ContactDetailPage extends StatefulWidget {
   final Contact contact;
   final Function(Contact) updateContact;
 
   const ContactDetailPage({required this.contact, required this.updateContact});
+
+  @override
+  _ContactDetailPageState createState() => _ContactDetailPageState();
+}
+
+class _ContactDetailPageState extends State<ContactDetailPage> {
+  late Contact contact;
+
+  @override
+  void initState() {
+    super.initState();
+    contact = widget.contact;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -561,7 +579,8 @@ class ContactDetailPage extends StatelessWidget {
       ),
     );
   }
- String _getInitials(String name) {
+
+  String _getInitials(String name) {
     List<String> nameSplit = name.split(' ');
     String initials = '';
     int numWords = nameSplit.length > 2 ? 2 : nameSplit.length;
@@ -570,6 +589,7 @@ class ContactDetailPage extends StatelessWidget {
     }
     return initials;
   }
+
   void _editContact(BuildContext context) async {
     final updatedContact = await Navigator.push(
       context,
@@ -577,41 +597,51 @@ class ContactDetailPage extends StatelessWidget {
     );
 
     if (updatedContact != null && updatedContact is Contact) {
-      updateContact(updatedContact);
+      widget.updateContact(updatedContact);
+      setState(() {
+        contact = updatedContact;
+      });
     }
   }
-void _deleteContact(BuildContext context) async {
-  bool confirmDelete = await showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Delete Contact'),
-        content: Text('Are you sure you want to delete this contact?'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(false);
-            },
-            child: Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(true);
-            },
-            child: Text('DELETE'),
-          ),
-        ],
-      );
-    },
-  );
 
-  if (confirmDelete) {
-    await DatabaseHelper.instance.deleteContact(contact.id!);
-    Navigator.pop(context, true);  // Notify the previous screen to update the UI
+  void _deleteContact(BuildContext context) async {
+    bool confirmDelete = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Delete Contact'),
+          content: Text('Are you sure you want to delete this contact?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                                  Navigator.of(context).pop(true);
+
+                });
+              },
+              child: Text('DELETE'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete) {
+      await DatabaseHelper.instance.deleteContact(contact.id!);
+      setState(() {
+        
+      });
+      Navigator.pop(context, true);  // Notify the previous screen to update the UI
+    }
   }
 }
 
-}
 
 class EditContactPage extends StatefulWidget {
   final Contact contact;
